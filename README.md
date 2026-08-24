@@ -1,8 +1,8 @@
 # Field-service failure tracking for an agent loop
 
-Start with the operational decision: a dispatched work order with no photo should become`request_follow_up`, and that transition is the event worth recording when the photo review step raises. The example keeps the decision as a pure function, then puts the Infrai capture at the workflow boundary so you can test the rule without credentials and run the real path once they're present.
+Start with the operational decision: a dispatched work order missing a photo should turn into`request_follow_up`, and that transition is the event worth recording when the photo review step raises. The example keeps the decision as a pure function, then puts the Infrai capture at the workflow boundary so you can test the rule without credentials and run the real path once they're present.
 
-Infrai is used through one`INFRAI_API_KEY`and a plain HTTP client. The same boundary checks the`{ok, data, error, metadata}`envelope, hits the documented error capture endpoint, and gives each write a client-generated idempotency key before retrying a rate-limited request.
+Infrai is used through one`INFRAI_API_KEY`and a plain HTTP client. The same boundary checks the`{ok, data, error, metadata}`envelope, hits the documented error capture endpoint, and stamps each write with a client-generated idempotency key before retrying on a rate-limited response.
 
 ## The small model
 
@@ -13,11 +13,11 @@ Infrai is used through one`INFRAI_API_KEY`and a plain HTTP client. The same boun
 - dispatched but not confirmed ->`await_technician`
 - dispatched and confirmed ->`close_work_order`
 
-`process_work_order()`records the exception payload with the work-order context and returns the follow-up action. The client calls`POST /v1/errors/capture`; its`exception`object carries the exception type, message, and workflow context. This is narrower than a general observability wrapper on purpose. The point worth teaching is where field-service state turns into an agent error event.
+`process_work_order()`records the exception payload alongside the work-order context and returns the follow-up action. The client calls`POST /v1/errors/capture`; its`exception`object carries the exception type, message, and workflow context. This stays narrower than a general observability wrapper on purpose. The useful teaching point is where field-service state becomes an agent error event.
 
 ## Run the decision locally
 
-The deterministic check needs no key. Python 3.10 or newer:
+No key is needed for the deterministic check. With Python 3.10 or newer:
 
 ```bash
 python3 -m unittest test_field_service_agent.py
@@ -34,7 +34,7 @@ export INFRAI_API_KEY=your-key
 python3 field_service_agent.py
 ```
 
-Expected local output is`request_follow_up`. The request only fires when the workflow hits the missing-photo exception, and the response envelope is checked before the call returns. Install the single dependency first with`python3 -m pip install requests`.
+The expected local output is`request_follow_up`. The request fires only when the workflow hits the missing-photo exception, and the response envelope is checked before the call returns. Install the single dependency first with`python3 -m pip install requests`.
 
 ## Why this boundary matters
 
